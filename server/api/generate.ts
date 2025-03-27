@@ -6,7 +6,7 @@ dotenv.config();
 
 const router = Router();
 const openai = new OpenAI({
-  apiKey: process.env.VITE_OPENAI_API_KEY
+  apiKey: process.env.OPENAI_API_KEY
 });
 
 router.post('/generate', async (req, res) => {
@@ -16,7 +16,7 @@ router.post('/generate', async (req, res) => {
     const systemMessage = context || 'You are a TypeScript code generator. Focus primarily on providing a SINGLE code example with minimal explanation. Always wrap code in triple backticks with typescript language identifier. Be concise and provide only one working code block per response.';
 
     const completion = await openai.chat.completions.create({
-      model: process.env.VITE_OPENAI_MODEL || 'gpt-4o-mini',
+      model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
       messages: [
         {
           role: 'system',

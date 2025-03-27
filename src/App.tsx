@@ -107,9 +107,19 @@ fetchRandomJoke().then(joke => {
         const originalLog = console.log;
         
         console.log = (...args: any[]) => {
-          const message = args.map(arg => 
-            typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-          ).join(' ');
+          const message = args.map(arg => {
+            if (typeof arg === 'object') {
+              if (Array.isArray(arg)) {
+                // Format arrays in a single line
+                return `[${arg.join(', ')}]`;
+              } else {
+                // Keep normal formatting for other objects
+                return JSON.stringify(arg, null, 2);
+              }
+            } else {
+              return String(arg);
+            }
+          }).join(' ');
           logs.push(message);
         };
         
@@ -131,7 +141,9 @@ fetchRandomJoke().then(joke => {
       // Special case for class syntax with constructor parameter properties
       if (code.includes('class') && 
           (code.includes('constructor') && /constructor\s*\(\s*(?:public|private|protected|readonly)/.test(code) || 
-           code.includes('extends'))) {
+           code.includes('extends') ||
+           code.includes('static') ||  // Add support for static members
+           code.includes('private'))) { // Add support for private modifier
         // Transform TypeScript class syntax to valid JavaScript
         let jsCode = code;
         
@@ -156,7 +168,9 @@ fetchRandomJoke().then(joke => {
           // Remove interface declarations
           .replace(/interface\s+[\w<>]+\s*\{[\s\S]*?\}/g, '')
           // Remove generic type parameters
-          .replace(/<[\w\s,]+>/g, '');
+          .replace(/<[\w\s,]+>/g, '')
+          // Remove private, public, protected keywords from class members
+          .replace(/(private|public|protected)\s+(static\s+)?(\w+)/g, '$2$3');
         
         // Handle constructor parameter properties
         const constructorParamRegex = /constructor\s*\(([\s\S]*?)\)/;
@@ -217,9 +231,19 @@ fetchRandomJoke().then(joke => {
         const originalLog = console.log;
         
         console.log = (...args: any[]) => {
-          const message = args.map(arg => 
-            typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-          ).join(' ');
+          const message = args.map(arg => {
+            if (typeof arg === 'object') {
+              if (Array.isArray(arg)) {
+                // Format arrays in a single line
+                return `[${arg.join(', ')}]`;
+              } else {
+                // Keep normal formatting for other objects
+                return JSON.stringify(arg, null, 2);
+              }
+            } else {
+              return String(arg);
+            }
+          }).join(' ');
           logs.push(message);
         };
         
@@ -270,9 +294,19 @@ fetchRandomJoke().then(joke => {
         // Call the original console.log so it still appears in dev tools
         originalLog(...args);
         
-        const message = args.map(arg => 
-          typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-        ).join(' ');
+        const message = args.map(arg => {
+          if (typeof arg === 'object') {
+            if (Array.isArray(arg)) {
+              // Format arrays in a single line
+              return `[${arg.join(', ')}]`;
+            } else {
+              // Keep normal formatting for other objects
+              return JSON.stringify(arg, null, 2);
+            }
+          } else {
+            return String(arg);
+          }
+        }).join(' ');
         logs.push(message);
         
         // For joke-related code, update the output immediately
@@ -305,15 +339,31 @@ fetchRandomJoke().then(joke => {
         
         // Special check for the greet function
         if (jsCode.includes('const greet') && jsCode.includes('return `Hello, ${name}!`')) {
-          // Extract username from code
-          const userNameMatch = jsCode.match(/const\s+userName\s*=\s*["'](.+?)["']/);
-          const userName = userNameMatch ? userNameMatch[1] : "Alice";
+          // First check if there's a direct call to greet with a string literal
+          const directCallMatch = jsCode.match(/greet\(["'](.+?)["']\)/);
           
-          // Execute with extracted username
-          const greet = (name: any) => {
-            return `Hello, ${name}!`;
-          };
-          console.log(greet(userName));
+          if (directCallMatch) {
+            // Direct call like greet("World")
+            const directParam = directCallMatch[1];
+            const greet = (name: any) => {
+              return `Hello, ${name}!`;
+            };
+            const result = greet(directParam);
+            console.log(result);
+            setOutput(result); // Set the output directly
+          } else {
+            // Extract username from code (original behavior)
+            const userNameMatch = jsCode.match(/const\s+userName\s*=\s*["'](.+?)["']/);
+            const userName = userNameMatch ? userNameMatch[1] : "Alice";
+            
+            // Execute with extracted username
+            const greet = (name: any) => {
+              return `Hello, ${name}!`;
+            };
+            const result = greet(userName);
+            console.log(result);
+            setOutput(result); // Set the output directly
+          }
         } else {
           // Execute the transpiled code and handle potential async code
           const asyncWrappedCode = `

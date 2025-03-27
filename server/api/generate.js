@@ -4,13 +4,13 @@ import dotenv from 'dotenv';
 dotenv.config();
 const router = Router();
 const openai = new OpenAI({
-    apiKey: process.env.VITE_OPENAI_API_KEY
+    apiKey: process.env.OPENAI_API_KEY
 });
 router.post('/generate', async (req, res) => {
     try {
         const { prompt } = req.body;
         const completion = await openai.chat.completions.create({
-            model: process.env.VITE_OPENAI_MODEL || 'gpt-4o-mini',
+            model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
             messages: [
                 {
                     role: 'system',

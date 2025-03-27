@@ -8,13 +8,13 @@ let port;
 try {
     dotenv.config();
     // Verify required environment variables
-    if (!process.env.VITE_OPENAI_API_KEY) {
-        throw new Error('Missing required environment variable: VITE_OPENAI_API_KEY');
+    if (!process.env.OPENAI_API_KEY) {
+        throw new Error('Missing required environment variable: OPENAI_API_KEY');
     }
     port = Number(process.env.PORT) || 3001;
     // Initialize OpenAI client
     const openai = new OpenAI({
-        apiKey: process.env.VITE_OPENAI_API_KEY
+        apiKey: process.env.OPENAI_API_KEY
     });
     console.log('OpenAI client initialized successfully');
 }
