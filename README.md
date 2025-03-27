@@ -11,6 +11,8 @@ Interactive TypeScript playground with AI-powered code assistance.
 - Clean single-line array output formatting
 - Support for classes with static members
 - Improved function execution with direct parameter support
+- Whitespace rendering on selection
+- Indentation guides for better code readability
 
 ## Setup
 
@@ -30,12 +32,24 @@ Interactive TypeScript playground with AI-powered code assistance.
 npm run build
 ```
 
-## Technology
+## Technology Stack
 
-- React + TypeScript
-- Monaco Editor
-- OpenAI API
-- Express backend
+### Frontend
+- React 19 with TypeScript
+- Monaco Editor for code editing and syntax highlighting
+- Vite 6 for fast development and building
+- Custom theming system with context API
+
+### Backend
+- Node.js with Express 4
+- OpenAI API v4 integration
+- TypeScript execution with Babel
+- ts-node for development
+
+### Development Tools
+- ESLint for code quality
+- Git for version control
+- npm for package management
 
 ## License
 
