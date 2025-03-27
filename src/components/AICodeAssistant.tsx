@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
 import { ThemeContext } from '../themes';
+import Editor from '@monaco-editor/react';
 
 interface Message {
   type: 'user' | 'ai';
@@ -13,8 +14,16 @@ interface AICodeAssistantProps {
 
 const AICodeAssistant: React.FC<AICodeAssistantProps> = ({ onAcceptCode, onWidthChange }) => {
   const { colors } = useContext(ThemeContext);
-  const [isExpanded, setIsExpanded] = useState(true);
-  const [width, setWidth] = useState(300);
+  const [isExpanded, setIsExpanded] = useState(() => {
+    // Try to get saved state from localStorage, default to true if not found
+    const savedState = localStorage.getItem('aiAssistantExpanded');
+    return savedState === null ? true : savedState === 'true';
+  });
+  const [width, setWidth] = useState(() => {
+    // Try to get saved width from localStorage, default to 400 if not found
+    const savedWidth = localStorage.getItem('aiAssistantWidth');
+    return savedWidth === null ? 400 : parseInt(savedWidth, 10);
+  });
   const [isDragging, setIsDragging] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     { 
@@ -27,6 +36,19 @@ const AICodeAssistant: React.FC<AICodeAssistantProps> = ({ onAcceptCode, onWidth
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const resizeHandleRef = useRef<HTMLDivElement>(null);
+  const editorRefs = useRef<Map<number, any>>(new Map());
+
+  // Save expanded state to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('aiAssistantExpanded', isExpanded.toString());
+  }, [isExpanded]);
+  
+  // Save width to localStorage (but only when not dragging to avoid excessive writes)
+  useEffect(() => {
+    if (!isDragging) {
+      localStorage.setItem('aiAssistantWidth', width.toString());
+    }
+  }, [width, isDragging]);
 
   // Start resizing on mouse down
   const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
@@ -51,7 +73,7 @@ const AICodeAssistant: React.FC<AICodeAssistantProps> = ({ onAcceptCode, onWidth
       
       // Calculate new width with constraints
       const newWidth = Math.max(250, initialWidth + deltaX);
-      const maxWidth = Math.min(Math.floor(window.innerWidth / 2), 600);
+      const maxWidth = Math.min(Math.floor(window.innerWidth / 2), 800);
       const constrainedWidth = Math.min(newWidth, maxWidth);
       
       setWidth(constrainedWidth);
@@ -99,8 +121,8 @@ const AICodeAssistant: React.FC<AICodeAssistantProps> = ({ onAcceptCode, onWidth
   // Add resize event listener to handle browser window resizing
   useEffect(() => {
     const handleResize = () => {
-      // Make sure sidebar width doesn't exceed half the window or 600px
-      const maxWidth = Math.min(Math.floor(window.innerWidth / 2), 600);
+      // Make sure sidebar width doesn't exceed half the window or 800px
+      const maxWidth = Math.min(Math.floor(window.innerWidth / 2), 800);
       if (width > maxWidth) {
         setWidth(maxWidth);
         onWidthChange?.(maxWidth);
@@ -110,6 +132,57 @@ const AICodeAssistant: React.FC<AICodeAssistantProps> = ({ onAcceptCode, onWidth
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [width, onWidthChange]);
+
+  // Store editor instance when mounted
+  const handleEditorMount = (editor: any, monaco: any, codeIndex: number) => {
+    // Store the editor reference
+    editorRefs.current.set(codeIndex, editor);
+    
+    // Configure editor
+    editor.updateOptions({
+      overviewRulerBorder: false,
+      renderLineHighlight: 'none',
+      guides: {
+        indentation: true,
+        highlightActiveIndentation: false,
+        bracketPairs: true
+      },
+      bracketPairColorization: { enabled: true },
+    });
+    
+    // Add selection change listener to show whitespace on selection
+    editor.onDidChangeCursorSelection(() => {
+      const selection = editor.getSelection();
+      const hasSelection = selection !== null && !selection.isEmpty();
+      
+      // Show whitespace/guides when text is selected, hide otherwise
+      editor.updateOptions({
+        renderWhitespace: hasSelection ? 'all' : 'none'
+      });
+    });
+    
+    // Set indentation rules for better indentation guides
+    monaco.languages.setLanguageConfiguration('typescript', {
+      indentationRules: {
+        increaseIndentPattern: /{[^}]*$|^\s*\w*\s*\([^)]*$|\[\s*$/,
+        decreaseIndentPattern: /^[^{]*}|^[^(]*\)|\]$/
+      }
+    });
+  };
+
+  // When width changes, update editor layouts
+  useEffect(() => {
+    // Small delay to ensure DOM has updated
+    const timer = setTimeout(() => {
+      editorRefs.current.forEach(editor => {
+        if (editor && typeof editor.layout === 'function') {
+          editor.layout();
+        }
+      });
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [width, isExpanded]);
 
   // Connect to OpenAI server
   const generateResponse = async (userMessage: string) => {
@@ -192,6 +265,7 @@ const AICodeAssistant: React.FC<AICodeAssistantProps> = ({ onAcceptCode, onWidth
     }
   };
 
+  // Handle copy button click
   const handleCopyCode = (code: string, index: number) => {
     navigator.clipboard.writeText(code).then(() => {
       // Show visual feedback
@@ -218,6 +292,7 @@ const AICodeAssistant: React.FC<AICodeAssistantProps> = ({ onAcceptCode, onWidth
       overflow: 'hidden',
       display: 'flex',
       flexDirection: 'column',
+      flexShrink: 0, // Prevent sidebar from shrinking
     }}>
       {/* Resize handle */}
       {isExpanded && (
@@ -301,15 +376,16 @@ const AICodeAssistant: React.FC<AICodeAssistantProps> = ({ onAcceptCode, onWidth
             padding: '15px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '15px',
+            gap: '20px', // Increased gap between messages
           }}>
             {messages.map((message, index) => (
               <div 
                 key={index} 
                 style={{ 
                   alignSelf: message.type === 'user' ? 'flex-end' : 'flex-start',
-                  maxWidth: '80%',
-                  padding: '10px 15px',
+                  maxWidth: message.content.includes('```') ? '100%' : '80%', // Full width for code blocks
+                  width: message.content.includes('```') ? '100%' : 'auto', // Full width for code blocks
+                  padding: message.content.includes('```') ? '10px 5px' : '10px 15px', // Less side padding for code
                   borderRadius: '12px',
                   background: message.type === 'user' ? colors.userMessage : colors.aiMessage,
                   borderTopLeftRadius: message.type === 'ai' ? '4px' : '12px',
@@ -327,7 +403,12 @@ const AICodeAssistant: React.FC<AICodeAssistantProps> = ({ onAcceptCode, onWidth
                       } else {
                         const codeIndex = Math.floor(i/2);
                         return (
-                          <div key={i} style={{ position: 'relative' }}>
+                          <div key={i} style={{ 
+                            position: 'relative',
+                            marginTop: '10px',
+                            marginBottom: '10px',
+                            width: '100%'
+                          }}>
                             {message.type === 'ai' && (
                               <div style={{
                                 display: 'flex',
@@ -342,8 +423,8 @@ const AICodeAssistant: React.FC<AICodeAssistantProps> = ({ onAcceptCode, onWidth
                                     color: colors.foreground,
                                     border: 'none',
                                     borderRadius: '4px',
-                                    fontSize: '11px',
-                                    padding: '3px 8px',
+                                    fontSize: '12px',
+                                    padding: '4px 10px',
                                     cursor: 'pointer',
                                     display: 'flex',
                                     alignItems: 'center',
@@ -358,26 +439,61 @@ const AICodeAssistant: React.FC<AICodeAssistantProps> = ({ onAcceptCode, onWidth
                                     color: 'white',
                                     border: 'none',
                                     borderRadius: '4px',
-                                    fontSize: '11px',
-                                    padding: '3px 8px',
+                                    fontSize: '12px',
+                                    padding: '4px 10px',
                                     cursor: 'pointer',
+                                    fontWeight: 'bold',
                                   }}
                                 >
                                   Use
                                 </button>
                               </div>
                             )}
-                            <pre style={{ 
+                            <div style={{ 
                               background: colors.codeBackground, 
-                              padding: '10px', 
                               borderRadius: '6px', 
-                              overflowX: 'auto',
+                              overflow: 'hidden',
                               fontSize: '13px',
-                              margin: '0',
+                              margin: '0 auto', // Center the editor horizontally
                               color: colors.foreground,
+                              // Make width fully responsive to the container
+                              width: '100%',
+                              // No max-width constraint to allow full expansion
+                              // Calculate height more generously based on code size
+                              height: `${Math.min(500, Math.max(150, 
+                                // More dynamic height calculation for all window sizes
+                                (part.split('\n').length * 22) + 40
+                              ))}px`,
+                              // Add subtle shadow for better visual distinction
+                              boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
                             }}>
-                              <code>{part}</code>
-                            </pre>
+                              <Editor
+                                height="100%"
+                                defaultLanguage="typescript"
+                                value={part}
+                                theme={colors.isDark ? 'vs-dark' : 'light'}
+                                options={{
+                                  readOnly: true,
+                                  minimap: { enabled: false },
+                                  fontSize: 14, // Larger font size
+                                  wordWrap: 'on',
+                                  lineNumbers: 'on',
+                                  lineNumbersMinChars: 3,
+                                  folding: false,
+                                  padding: { top: 10, bottom: 10 }, // More padding
+                                  lineDecorationsWidth: 30, // More space between line numbers and code
+                                  tabSize: 2,
+                                  scrollBeyondLastLine: false,
+                                  renderWhitespace: 'none',
+                                  guides: { indentation: false },
+                                  domReadOnly: true,
+                                  contextmenu: false
+                                }}
+                                onMount={(editor, monaco) => {
+                                  handleEditorMount(editor, monaco, codeIndex);
+                                }}
+                              />
+                            </div>
                           </div>
                         );
                       }

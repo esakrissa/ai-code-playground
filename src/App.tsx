@@ -15,19 +15,13 @@ declare global {
 // Modern TypeScript Playground with clean code execution
 export default function App() {
   const { colors } = useContext(ThemeContext);
-  const [code, setCode] = useState(`interface Joke {
-    setup: string;
-    punchline: string;
-}
-
-async function fetchRandomJoke(): Promise<Joke> {
+  const [code, setCode] = useState(`async function fetchRandomJoke() {
     const response = await fetch('https://official-joke-api.appspot.com/random_joke');
-    return response.json();
+    const joke = await response.json();
+    return \`\${joke.setup} - \${joke.punchline}\`;
 }
 
-fetchRandomJoke().then(joke => {
-    console.log(\`\${joke.setup} - \${joke.punchline}\`);
-});`);
+fetchRandomJoke().then(joke => console.log(joke));`);
   const [output, setOutput] = useState('');
   const [error, setError] = useState('');
   const [isExecuting, setIsExecuting] = useState(false);
@@ -130,7 +124,7 @@ fetchRandomJoke().then(joke => {
         .then(joke => {
           // Format exactly as the user's code would
           setOutput(`${joke.setup} - ${joke.punchline}`);
-          setIsExecuting(false);
+          setIsExecuting(false); 
         })
         .catch(err => {
           setError(`Error fetching joke: ${err.message}`);
@@ -502,18 +496,20 @@ fetchRandomJoke().then(joke => {
     <div style={{ 
       display: 'flex', 
       height: '100vh',
-      overflow: 'hidden',
+      overflow: 'auto',
       fontFamily: 'Arial, sans-serif',
       background: colors.background,
       color: colors.foreground,
       position: 'relative',
+      minWidth: '768px', // Add minimum width to prevent layout issues
     }}>
       <div style={{ 
-        flex: 1, 
+        flex: '1 1 auto', 
         display: 'flex', 
         flexDirection: 'column',
         padding: '20px',
         overflowY: 'auto',
+        minWidth: '400px', // Ensure main content has minimum width
       }}>
         <h1 style={{ margin: '0 0 10px 0', color: colors.primary }}>TypeScript Playground</h1>
         <p style={{ margin: '0 0 20px 0', color: colors.foreground, opacity: 0.7 }}>
@@ -545,10 +541,15 @@ fetchRandomJoke().then(joke => {
               automaticLayout: true,
               scrollBeyondLastLine: false,
               lineNumbers: 'on',
-              glyphMargin: true,
-              folding: true,
+              lineNumbersMinChars: 3,
+              glyphMargin: false,
+              folding: false,
               padding: { top: 15, bottom: 15 },
-              // Enable TypeScript intelligent features
+              lineDecorationsWidth: 30,
+              tabSize: 4,
+              detectIndentation: true,
+              renderWhitespace: 'none', // Don't show whitespace dots by default
+              // Simple editor configuration without problematic settings
               quickSuggestions: true,
               suggestOnTriggerCharacters: true,
               acceptSuggestionOnEnter: 'smart',
@@ -560,6 +561,57 @@ fetchRandomJoke().then(joke => {
             onMount={(editor, monaco) => {
               // Add any additional configuration for the Monaco instance here
               editor.focus();
+              
+              // Enable indentation guides after mounting
+              setTimeout(() => {
+                // Create a CSS rule to show indentation guides
+                const style = document.createElement('style');
+                style.textContent = `
+                  .monaco-editor .view-line:before {
+                    content: '';
+                    position: absolute;
+                    left: 0;
+                    top: 0;
+                    bottom: 0;
+                    width: 1px;
+                    background-color: rgba(128, 128, 128, 0.1);
+                    pointer-events: none;
+                  }
+                `;
+                document.head.appendChild(style);
+              }, 100);
+              
+              // Add a selection change listener to show guides only during selection
+              editor.onDidChangeCursorSelection(() => {
+                const selection = editor.getSelection();
+                const hasSelection = selection !== null && !selection.isEmpty();
+                
+                // Show whitespace when there's a selection, hide otherwise
+                editor.updateOptions({
+                  renderWhitespace: hasSelection ? 'all' : 'none'
+                });
+              });
+              
+              // Disable all validations for TypeScript code to prevent red underlines
+              monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
+                noSemanticValidation: true,
+                noSyntaxValidation: true,
+                noSuggestionDiagnostics: true
+              });
+
+              // Set compiler options for TypeScript
+              monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
+                target: monaco.languages.typescript.ScriptTarget.Latest,
+                allowNonTsExtensions: true,
+                moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+                module: monaco.languages.typescript.ModuleKind.CommonJS,
+                noEmit: true,
+                lib: ["ES2020", "DOM", "DOM.Iterable"],
+                jsx: monaco.languages.typescript.JsxEmit.React,
+                strict: false,
+                allowJs: true,
+                esModuleInterop: true
+              });
             }}
           />
           {/* Resize handle */}
@@ -665,7 +717,7 @@ fetchRandomJoke().then(joke => {
               <pre style={{ 
                 background: colors.errorBackground, 
                 padding: '15px', 
-                border: `1px solid ${colors.errorBorder}`,
+                border: `1px solid ${colors.border}`,
                 borderRadius: '8px',
                 whiteSpace: 'pre-wrap',
                 margin: 0,
@@ -689,4 +741,4 @@ fetchRandomJoke().then(joke => {
       <AICodeAssistant onAcceptCode={handleAcceptCode} onWidthChange={handleSidebarWidthChange} />
     </div>
   );
-} 
+}

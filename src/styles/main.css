@@ -11,14 +11,14 @@ body {
   line-height: 1.5;
   color: #333;
   background-color: #f9f9f9;
-  overflow: hidden;
+  overflow: auto; /* Allow scrolling on body */
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 html, body, #root {
   height: 100%;
   width: 100%;
-  overflow: hidden;
+  overflow: auto; /* Allow scrolling everywhere */
 }
 
 /* Scrollbar styling */
@@ -85,6 +85,13 @@ pre {
   }
 }
 
+/* Responsive layout adjustments */
+@media (max-width: 1024px) {
+  #root > div {
+    min-width: auto !important;
+  }
+}
+
 /* Mobile responsive adjustments */
 @media (max-width: 768px) {
   body {
@@ -94,11 +101,24 @@ pre {
   #root > div {
     flex-direction: column;
     height: auto;
+    min-width: 100% !important;
     overflow: auto;
   }
   
   textarea {
     height: 150px !important;
+  }
+  
+  /* Ensure proper sizing for editor and sidebar */
+  #root > div > div:first-child {
+    min-width: 100% !important;
+    width: 100% !important;
+  }
+  
+  /* Make AI assistant full width when expanded on small screens */
+  #root > div > div:last-child {
+    width: 100% !important;
+    max-width: 100% !important;
   }
 }
 
