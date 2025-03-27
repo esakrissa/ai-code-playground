@@ -18,6 +18,7 @@ interface ThemeColors {
   userMessage: string;
   aiMessage: string;
   inputBackground: string;
+  isDark?: boolean;
 }
 
 export interface ThemeContextType {
@@ -42,6 +43,7 @@ const lightColors: ThemeColors = {
   userMessage: '#e3f2fd',
   aiMessage: '#f5f5f5',
   inputBackground: '#ffffff',
+  isDark: false,
 };
 
 const darkColors: ThemeColors = {
@@ -60,6 +62,7 @@ const darkColors: ThemeColors = {
   userMessage: '#1e3a5a',
   aiMessage: '#2a2a2a',
   inputBackground: '#252525',
+  isDark: true,
 };
 
 export const getThemeColors = (mode: ThemeMode): ThemeColors => {

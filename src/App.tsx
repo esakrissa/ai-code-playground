@@ -1,7 +1,8 @@
-import { useState, useContext, useEffect } from 'react';
+import { useState, useContext, useEffect, useRef } from 'react';
 import AICodeAssistant from './components/AICodeAssistant';
 import ThemeToggle from './components/ThemeToggle';
 import { ThemeContext } from './themes';
+import Editor from '@monaco-editor/react';
 
 // Extend Window interface to include our custom property
 declare global {
@@ -31,11 +32,47 @@ fetchRandomJoke().then(joke => {
   const [error, setError] = useState('');
   const [isExecuting, setIsExecuting] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(300); // Default sidebar width
+  const [editorHeight, setEditorHeight] = useState(250); // Default editor height
+  const [isResizing, setIsResizing] = useState(false);
+  const editorContainerRef = useRef<HTMLDivElement>(null);
 
   // Handle sidebar width change
   const handleSidebarWidthChange = (width: number) => {
     setSidebarWidth(width);
   };
+
+  // Handle editor resize
+  const startResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+    document.addEventListener('mousemove', handleResize);
+    document.addEventListener('mouseup', stopResize);
+  };
+
+  const handleResize = (e: MouseEvent) => {
+    if (!isResizing || !editorContainerRef.current) return;
+    
+    const containerRect = editorContainerRef.current.getBoundingClientRect();
+    const newHeight = Math.max(150, e.clientY - containerRect.top);
+    
+    // Limit maximum height to 70% of viewport height
+    const maxHeight = window.innerHeight * 0.7;
+    setEditorHeight(Math.min(newHeight, maxHeight));
+  };
+
+  const stopResize = () => {
+    setIsResizing(false);
+    document.removeEventListener('mousemove', handleResize);
+    document.removeEventListener('mouseup', stopResize);
+  };
+
+  // Clean up event listeners
+  useEffect(() => {
+    return () => {
+      document.removeEventListener('mousemove', handleResize);
+      document.removeEventListener('mouseup', stopResize);
+    };
+  }, [isResizing]);
 
   // Direct pattern matching for TypeScript code
   const executeSimplePattern = (code: string): boolean => {
@@ -464,23 +501,65 @@ fetchRandomJoke().then(joke => {
           Write TypeScript code and see it executed in real-time
         </p>
         
-        <div style={{ marginBottom: '15px' }}>
-          <textarea
+        <div 
+          ref={editorContainerRef}
+          style={{ 
+            marginBottom: '30px', 
+            height: `${editorHeight}px`, 
+            border: `1px solid ${colors.border}`, 
+            borderRadius: '8px', 
+            overflow: 'hidden',
+            position: 'relative',
+            transition: isResizing ? 'none' : 'height 0.1s ease',
+          }}
+        >
+          <Editor
+            height="100%"
+            defaultLanguage="typescript"
             value={code}
-            onChange={(e) => setCode(e.target.value)}
-            style={{ 
-              width: '100%', 
-              height: '250px', 
-              fontFamily: 'monospace',
-              padding: '15px',
-              border: `1px solid ${colors.border}`,
-              borderRadius: '8px',
-              fontSize: '14px',
-              resize: 'vertical',
-              boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.05)',
-              lineHeight: '1.5',
-              background: colors.editorBackground,
-              color: colors.editorText,
+            onChange={(value) => setCode(value || '')}
+            theme={colors.isDark ? 'vs-dark' : 'light'}
+            options={{
+              minimap: { enabled: false },
+              fontSize: 14,
+              wordWrap: 'on',
+              automaticLayout: true,
+              scrollBeyondLastLine: false,
+              lineNumbers: 'on',
+              glyphMargin: true,
+              folding: true,
+              padding: { top: 15, bottom: 15 },
+              // Enable TypeScript intelligent features
+              quickSuggestions: true,
+              suggestOnTriggerCharacters: true,
+              acceptSuggestionOnEnter: 'smart',
+              tabCompletion: 'on',
+              contextmenu: true,
+              snippetSuggestions: 'inline',
+              formatOnPaste: true,
+            }}
+            onMount={(editor, monaco) => {
+              // Add any additional configuration for the Monaco instance here
+              editor.focus();
+            }}
+          />
+          {/* Resize handle */}
+          <div
+            style={{
+              position: 'absolute',
+              bottom: '0',
+              right: '0',
+              width: '20px',
+              height: '20px',
+              cursor: 'nwse-resize',
+              background: 'transparent',
+              borderBottomRightRadius: '7px',
+              zIndex: 100, // Higher z-index to ensure it's on top
+            }}
+            onMouseDown={(e) => {
+              e.preventDefault(); // Prevent other events
+              e.stopPropagation(); // Stop event bubbling
+              startResize(e);
             }}
           />
         </div>
