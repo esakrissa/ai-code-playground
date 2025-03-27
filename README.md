@@ -21,7 +21,7 @@ Interactive TypeScript playground with AI-powered code assistance.
 3. Create `.env` file with your OpenAI API key:
    ```
    OPENAI_API_KEY=your_api_key_here
-   OPENAI_MODEL=gpt-4-turbo-preview
+   OPENAI_MODEL=gpt-4o-mini
    ```
 4. Start development server: `npm run dev`
 5. Start API server: `npm start` (or `npm run start:windows` on Windows)
@@ -42,7 +42,7 @@ npm run build
 
 ### Backend
 - Node.js with Express 4
-- OpenAI API v4 integration
+- OpenAI API v4 integration (using gpt-4o-mini model)
 - TypeScript execution with Babel
 - ts-node for development
 
