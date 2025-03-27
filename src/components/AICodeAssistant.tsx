@@ -29,44 +29,63 @@ const AICodeAssistant: React.FC<AICodeAssistantProps> = ({ onAcceptCode, onWidth
   const resizeHandleRef = useRef<HTMLDivElement>(null);
 
   // Start resizing on mouse down
-  const handleMouseDown = (e: React.MouseEvent) => {
+  const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
+    
+    // Get initial position - handle both mouse and touch events
+    const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
+    const initialX = clientX;
+    const initialWidth = width;
+    
+    // Set dragging state
     setIsDragging(true);
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    
+    // Define move handler
+    const handleMove = (moveEvent: MouseEvent | TouchEvent) => {
+      const currentX = 'touches' in moveEvent 
+        ? moveEvent.touches[0].clientX 
+        : (moveEvent as MouseEvent).clientX;
+      
+      // Calculate delta - for sidebar drag, we move the opposite direction of cursor
+      const deltaX = initialX - currentX;
+      
+      // Calculate new width with constraints
+      const newWidth = Math.max(250, initialWidth + deltaX);
+      const maxWidth = Math.min(Math.floor(window.innerWidth / 2), 600);
+      const constrainedWidth = Math.min(newWidth, maxWidth);
+      
+      setWidth(constrainedWidth);
+      onWidthChange?.(constrainedWidth);
+      
+      moveEvent.preventDefault();
+    };
+    
+    // Define release handler
+    const handleRelease = () => {
+      setIsDragging(false);
+      document.removeEventListener('mousemove', handleMove as EventListener);
+      document.removeEventListener('touchmove', handleMove as EventListener);
+      document.removeEventListener('mouseup', handleRelease);
+      document.removeEventListener('touchend', handleRelease);
+    };
+    
+    // Add listeners
+    document.addEventListener('mousemove', handleMove as EventListener);
+    document.addEventListener('touchmove', handleMove as EventListener, { passive: false });
+    document.addEventListener('mouseup', handleRelease);
+    document.addEventListener('touchend', handleRelease);
   };
-
-  // Update width on mouse move
-  const handleMouseMove = (e: MouseEvent) => {
-    if (!isDragging) return;
-    
-    // Calculate new width (window width - mouse position from right)
-    const newWidth = window.innerWidth - e.clientX;
-    
-    // Set constraints: min 250px, max 50% of window width or 600px, whichever is smaller
-    const maxWidth = Math.min(Math.floor(window.innerWidth / 2), 600);
-    const constrainedWidth = Math.min(Math.max(250, newWidth), maxWidth);
-    
-    setWidth(constrainedWidth);
-    
-    // Notify parent component about width change
-    onWidthChange?.(constrainedWidth);
-  };
-
-  // Stop resizing on mouse up
-  const handleMouseUp = () => {
-    setIsDragging(false);
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', handleMouseUp);
-  };
-
-  // Clean up event listeners when component unmounts
+  
+  // Clean up any lingering event listeners
   useEffect(() => {
     return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      const noop = () => {};
+      document.removeEventListener('mousemove', noop);
+      document.removeEventListener('touchmove', noop);
+      document.removeEventListener('mouseup', noop);
+      document.removeEventListener('touchend', noop);
     };
-  }, [isDragging]);
+  }, []);
 
   // Notify parent component about initial width
   useEffect(() => {
@@ -206,30 +225,18 @@ const AICodeAssistant: React.FC<AICodeAssistantProps> = ({ onAcceptCode, onWidth
           ref={resizeHandleRef}
           className="resize-handle"
           onMouseDown={handleMouseDown}
+          onTouchStart={handleMouseDown}
           style={{
             position: 'absolute',
+            left: '-6px',
             top: 0,
-            left: '-10px',
-            width: '20px',
-            height: '100%',
+            bottom: 0,
+            width: '12px',
             cursor: 'col-resize',
-            zIndex: 20,
-            background: isDragging ? `rgba(${colors.primary.replace(/[^\d,]/g, '')}, 0.1)` : 'transparent',
+            zIndex: 100,
+            background: 'transparent',
           }}
-        >
-          <div style={{
-            position: 'absolute',
-            left: '2px',
-            top: '50%',
-            height: '50px',
-            width: '4px',
-            borderRadius: '2px',
-            background: isDragging ? colors.primary : 'rgba(127,127,127,0.3)',
-            transform: 'translateY(-50%)',
-            opacity: isDragging ? 0.8 : 0,
-            transition: 'opacity 0.3s ease, background 0.3s ease',
-          }} />
-        </div>
+        />
       )}
 
       {/* Toggle button */}

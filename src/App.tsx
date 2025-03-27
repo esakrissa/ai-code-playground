@@ -42,37 +42,56 @@ fetchRandomJoke().then(joke => {
   };
 
   // Handle editor resize
-  const startResize = (e: React.MouseEvent) => {
+  const startResize = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
+    
+    // Convert touch event to mouse event for consistent handling
+    const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
+    const initialY = clientY;
+    const initialHeight = editorHeight;
+    
+    // Set resizing state
     setIsResizing(true);
-    document.addEventListener('mousemove', handleResize);
-    document.addEventListener('mouseup', stopResize);
-  };
-
-  const handleResize = (e: MouseEvent) => {
-    if (!isResizing || !editorContainerRef.current) return;
     
-    const containerRect = editorContainerRef.current.getBoundingClientRect();
-    const newHeight = Math.max(150, e.clientY - containerRect.top);
+    // Define handlers
+    const handleMove = (moveEvent: MouseEvent | TouchEvent) => {
+      const currentY = 'touches' in moveEvent 
+        ? moveEvent.touches[0].clientY 
+        : (moveEvent as MouseEvent).clientY;
+      
+      const deltaY = currentY - initialY;
+      const newHeight = Math.max(150, initialHeight + deltaY);
+      const maxHeight = window.innerHeight * 0.7;
+      
+      setEditorHeight(Math.min(newHeight, maxHeight));
+      moveEvent.preventDefault();
+    };
     
-    // Limit maximum height to 70% of viewport height
-    const maxHeight = window.innerHeight * 0.7;
-    setEditorHeight(Math.min(newHeight, maxHeight));
+    const handleRelease = () => {
+      setIsResizing(false);
+      document.removeEventListener('mousemove', handleMove as EventListener);
+      document.removeEventListener('touchmove', handleMove as EventListener);
+      document.removeEventListener('mouseup', handleRelease);
+      document.removeEventListener('touchend', handleRelease);
+    };
+    
+    // Add listeners
+    document.addEventListener('mousemove', handleMove as EventListener);
+    document.addEventListener('touchmove', handleMove as EventListener, { passive: false });
+    document.addEventListener('mouseup', handleRelease);
+    document.addEventListener('touchend', handleRelease);
   };
-
-  const stopResize = () => {
-    setIsResizing(false);
-    document.removeEventListener('mousemove', handleResize);
-    document.removeEventListener('mouseup', stopResize);
-  };
-
-  // Clean up event listeners
+  
+  // Clean up any lingering event listeners
   useEffect(() => {
     return () => {
-      document.removeEventListener('mousemove', handleResize);
-      document.removeEventListener('mouseup', stopResize);
+      const noop = () => {};
+      document.removeEventListener('mousemove', noop);
+      document.removeEventListener('touchmove', noop);
+      document.removeEventListener('mouseup', noop);
+      document.removeEventListener('touchend', noop);
     };
-  }, [isResizing]);
+  }, []);
 
   // Direct pattern matching for TypeScript code
   const executeSimplePattern = (code: string): boolean => {
@@ -554,13 +573,10 @@ fetchRandomJoke().then(joke => {
               cursor: 'nwse-resize',
               background: 'transparent',
               borderBottomRightRadius: '7px',
-              zIndex: 100, // Higher z-index to ensure it's on top
+              zIndex: 100,
             }}
-            onMouseDown={(e) => {
-              e.preventDefault(); // Prevent other events
-              e.stopPropagation(); // Stop event bubbling
-              startResize(e);
-            }}
+            onMouseDown={startResize}
+            onTouchStart={startResize}
           />
         </div>
         
